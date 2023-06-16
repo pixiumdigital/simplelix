@@ -38,7 +38,7 @@ echo -e "\033[44m GIT-FETCHING \033[0m"
 
 REL_BASE_PATH="${APP_PATH}_release"
 if [ ! -d "${REL_BASE_PATH}" ]; then
-    echo -e "creating \033[31m${REL_BASE_PATH}\033[0m"
+    echo -e "creating \033[32listenm${REL_BASE_PATH}\033[0m"
     mkdir "${REL_BASE_PATH}"
 fi
 
@@ -57,7 +57,7 @@ git reset --hard origin/master
 function stop_app() {
 
   echo -e "\033[43m STOPPING OLD RELEASE \033[0m"
-  local pid=$(sudo lsof -i -P -n | { grep ":4000 (LISTEN)" || :; })
+  local pid=$(sudo lsof -i -P -n | { grep "beam.smp" || :; })
 
   case $pid in
   "")
@@ -65,20 +65,10 @@ function stop_app() {
     ;;
 
   *)
-    echo -e "  killing current process \033[31m$1\033[0m (running on \033[31m4000\033[0m)"
+    echo -e "  killing current process \033[31mbeam.smp\033[0m"
     # get the last part of the sentence (space separated list of words)
     # lrwxrwxrwx 1 ec2-user ec2-user 0 Feb 17 08:34 /proc/23501/exe -> /var/app/movo_releases/1645086172/erts-12.1.5/bin/beam.smp
-    local EXE_PATH=$(ls -l /proc/$1/exe | awk '{ print $NF }')
-    # /var/app/movo_releases/<RELENUMBER>/erts-12.1.5/bin/beam.smp
-    # match: s/(^.*)erts.*$/1/p with input as variable (not file)
-    local LEFT_PART=$(sed -n -e 's/\(^.*\)erts.*$/\1/p' <<<$EXE_PATH)
-    # TODO: why can't i stop gracefully?
-
-    # local cmd_stop="${LEFT_PART}bin/movo stop"
-    # echo -e "  gracefully stopping app with: ${cmd_stop}..."
-    local cmd_stop="kill -9 ${pid}"
-    echo -e "  violently stopping app with: ${cmd_stop}..."
-    $cmd_stop
+    sudo killall beam.smp
     #  sleep some time
     sleep 1
     ;;
