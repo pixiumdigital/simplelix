@@ -21,13 +21,26 @@ fi
 
 echo "sourcing .env"
 source ".env"
+
 echo "APP_PATH is ${APP_PATH} - required PHX_HOST is ${PHX_HOST}"
+if [ ! -d "${APP_PATH}" ]; then
+  echo -e "\033[31m please provide a valid APP_PATH\033[0m"
+  exit 1
+fi
+
 
 now_in_unix_seconds=$(date +'%s')
 
 # Update to latest version of code
 # cd /home/<YOUR_USERNAME>/my_app
 echo -e "\033[44m GIT-FETCHING \033[0m"
+
+
+REL_BASE_PATH="${APP_PATH}_release"
+if [ ! -d "${REL_BASE_PATH}" ]; then
+    echo -e "creating \033[31m${REL_BASE_PATH}\033[0m"
+    mkdir "${REL_BASE_PATH}"
+fi
 
 # cleanup before the build
 rm -rf "${APP_PATH}/priv/static"
