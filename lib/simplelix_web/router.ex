@@ -18,6 +18,13 @@ defmodule SimplelixWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+
+    live "/toys", ToyLive.Index, :index
+    live "/toys/new", ToyLive.Index, :new
+    live "/toys/:id/edit", ToyLive.Index, :edit
+
+    live "/toys/:id", ToyLive.Show, :show
+    live "/toys/:id/show/edit", ToyLive.Show, :edit
   end
 
   # Other scopes may use custom stacks.

@@ -1,0 +1,27 @@
+<.header>
+  Toy <%= @toy.id %>
+  <:subtitle>This is a toy record from your database.</:subtitle>
+  <:actions>
+    <.link patch={~p"/toys/#{@toy}/show/edit"} phx-click={JS.push_focus()}>
+      <.button>Edit toy</.button>
+    </.link>
+  </:actions>
+</.header>
+
+<.list>
+  <:item title="Title"><%= @toy.title %></:item>
+  <:item title="Price"><%= @toy.price %></:item>
+</.list>
+
+<.back navigate={~p"/toys"}>Back to toys</.back>
+
+<.modal :if={@live_action == :edit} id="toy-modal" show on_cancel={JS.patch(~p"/toys/#{@toy}")}>
+  <.live_component
+    module={SimplelixWeb.ToyLive.FormComponent}
+    id={@toy.id}
+    title={@page_title}
+    action={@live_action}
+    toy={@toy}
+    patch={~p"/toys/#{@toy}"}
+  />
+</.modal>

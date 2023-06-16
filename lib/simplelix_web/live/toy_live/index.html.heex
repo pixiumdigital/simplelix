@@ -1,0 +1,42 @@
+<.header>
+  Listing Toys
+  <:actions>
+    <.link patch={~p"/toys/new"}>
+      <.button>New Toy</.button>
+    </.link>
+  </:actions>
+</.header>
+
+<.table
+  id="toys"
+  rows={@streams.toys}
+  row_click={fn {_id, toy} -> JS.navigate(~p"/toys/#{toy}") end}
+>
+  <:col :let={{_id, toy}} label="Title"><%= toy.title %></:col>
+  <:col :let={{_id, toy}} label="Price"><%= toy.price %></:col>
+  <:action :let={{_id, toy}}>
+    <div class="sr-only">
+      <.link navigate={~p"/toys/#{toy}"}>Show</.link>
+    </div>
+    <.link patch={~p"/toys/#{toy}/edit"}>Edit</.link>
+  </:action>
+  <:action :let={{id, toy}}>
+    <.link
+      phx-click={JS.push("delete", value: %{id: toy.id}) |> hide("##{id}")}
+      data-confirm="Are you sure?"
+    >
+      Delete
+    </.link>
+  </:action>
+</.table>
+
+<.modal :if={@live_action in [:new, :edit]} id="toy-modal" show on_cancel={JS.patch(~p"/toys")}>
+  <.live_component
+    module={SimplelixWeb.ToyLive.FormComponent}
+    id={@toy.id || :new}
+    title={@page_title}
+    action={@live_action}
+    toy={@toy}
+    patch={~p"/toys"}
+  />
+</.modal>
