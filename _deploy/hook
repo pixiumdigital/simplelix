@@ -34,7 +34,7 @@ rm -rf "${APP_PATH}/priv/static"
 
 # @enkr1 added ssh-add in order to pass the permission denial.
 # NOTE: you can just rename the key id_rsa and no need for this
-eval `ssh-agent` && ssh-add ~/.ssh/deploy
+# eval `ssh-agent` && ssh-add ~/.ssh/deploy
 
 git fetch
 # undo local changes to the state of a Git repo
