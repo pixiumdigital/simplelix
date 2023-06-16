@@ -36,7 +36,7 @@ now_in_unix_seconds=$(date +'%s')
 echo -e "\033[44m GIT-FETCHING \033[0m"
 
 
-REL_BASE_PATH="${APP_PATH}_release"
+REL_BASE_PATH="${APP_PATH}_releases"
 if [ ! -d "${REL_BASE_PATH}" ]; then
     echo -e "creating \033[32listenm${REL_BASE_PATH}\033[0m"
     mkdir "${REL_BASE_PATH}"
