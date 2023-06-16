@@ -1,0 +1,12 @@
+#!/bin/bash
+RPATH="/var/app/snap"
+# SSH="ec2-user@snap.pixiumdigital.com"
+SSH="ec2-user@52.74.57.240"
+
+echo -e "running \033[34mhook\033[0m"
+ssh ${SSH} "${RPATH}/_deploy/hook"
+# above kept getting me
+# /etc/profile.d/lang.sh: line 19: warning: setlocale: LC_CTYPE: cannot change locale (UTF-8): No such file or directory
+# bash: /var/app/snap/_deploy/hook: Permission denied
+
+# ssh ec2-user@52.74.57.240 "/var/app/snap/_deploy/hook"

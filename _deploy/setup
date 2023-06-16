@@ -1,0 +1,83 @@
+#!/bin/bash
+# RUN on SERVER to setup the database
+
+# This tells bash that it should exit the script if any statement returns a non-true return value.
+# The benefit of using -e is that it prevents errors snowballing into serious issues when they could have been caught earlier
+set -e
+
+if [ ! -f "mix.exs" ]; then
+  echo -e "\033[31m please run the script from the PROJECT ROOT folder \033[0m"
+  exit 1
+fi
+
+# run the current fullpath to script
+#DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ ! -f ".env" ]; then
+  echo -e "\033[31m please provide a .env file under project root folder \033[0m"
+  exit 1
+fi
+
+echo "sourcing .env"
+source ".env"
+echo "APP_PATH is ${APP_PATH}"
+
+# now_in_unix_seconds=$(date +'%s')
+
+# Update to latest version of code
+# cd /home/<YOUR_USERNAME>/my_app
+echo -e "\033[44m GIT-FETCHING \033[0m"
+cd "${APP_PATH}"
+
+# cleanup before the build
+rm -rf "${APP_PATH}/priv/static"
+
+git fetch
+
+# undo local changes to the state of a Git repo
+git reset --hard origin/master
+
+echo -e "\033[44m BUILDING NEW RELEASE \033[0m"
+echo -e "  ports HTTP=\033[34m${HTTP_PORT}\033[0m / HTTPS=\033[34m${HTTPS_PORT}\033[0m"
+
+# get deps
+mix deps.get --only prod
+
+# create assets folders if needed
+ASSETS_PATH="${APP_PATH}/priv/static/assets"
+if [ -d "${ASSETS_PATH}" ]; then
+  rm -rf "${ASSETS_PATH}"
+fi
+
+mkdir "${ASSETS_PATH}"
+echo -e "created clean folder ${ASSETS_PATH}"
+
+# Build phase
+# DOC: this part is handled by mix assets.deploy(:prod) (even the copy part handled by task copy)
+# npm install --prefix ./assets
+# npm run deploy --prefix ./assets
+#  copy sass precompiled (now handled by Mix.Task.Copy)
+cp assets/css/app.css priv/static/assets/app.css
+# mix phx.digest
+
+mix assets.deploy
+
+# Create release
+# using HTTP/HTTPS ports
+# mix release --path "${REL_PATH}"
+
+# Set the release to the new version
+# echo "RELEASE=${now_in_unix_seconds}" >../env_vars
+
+# Run migrations and seeders
+echo -e "\033[44m SETING UP ${APP_NAME} \033[0m"
+# mix setup
+mix ecto.setup
+
+#  cleaning old releases
+# cd "${REL_BASE_PATH}"
+# echo "cleaning ${REL_BASE_PATH}..."
+# ls
+# ls | sort -nr | tail -n +2 | xargs -I {} rm -rf {}
+# echo "cleaned."
+# echo "remaining releases:"
+# ls

@@ -1,0 +1,144 @@
+#!/bin/bash
+# RUN on SERVER
+cmd="${1:-daemon}"
+
+# This tells bash that it should exit the script if any statement returns a non-true return value.
+# The benefit of using -e is that it prevents errors snowballing into serious issues when they could have been caught earlier
+set -e
+# main issue: grep returns an error if the pattern is not found
+
+# run the current fullpath to script
+DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${DIR}/.."
+pwd
+
+# run the current fullpath to script
+#DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ ! -f ".env" ]; then
+  echo -e "\033[31m please provide a .env file under project root folder \033[0m"
+  exit 1
+fi
+
+echo "sourcing .env"
+source ".env"
+echo "APP_PATH is ${APP_PATH} - required HOST/HTTPS_PORT is ${HOST}:${HTTPS_PORT}"
+
+now_in_unix_seconds=$(date +'%s')
+
+# Update to latest version of code
+# cd /home/<YOUR_USERNAME>/my_app
+echo -e "\033[44m GIT-FETCHING \033[0m"
+
+# cleanup before the build
+rm -rf "${APP_PATH}/priv/static"
+
+# @enkr1 added ssh-add in order to pass the permission denial.
+# NOTE: you can just rename the key id_rsa and no need for this
+eval `ssh-agent` && ssh-add ~/.ssh/deploy
+
+git fetch
+# undo local changes to the state of a Git repo
+git reset --hard origin/master
+
+# --- stop_app 1:PID 2:PORT
+function stop_app() {
+
+  echo -e "\033[43m STOPPING OLD RELEASE \033[0m"
+  local pid=$(sudo lsof -i -P -n | { grep ":${HTTPS_PORT} (LISTEN)" || :; })
+
+  case $pid in
+  "")
+    echo -e "  nothing to kill"
+    ;;
+
+  *)
+    echo -e "  killing current process \033[31m$1\033[0m (running on \033[31m${HTTPS_PORT}\033[0m)"
+    # get the last part of the sentence (space separated list of words)
+    # lrwxrwxrwx 1 ec2-user ec2-user 0 Feb 17 08:34 /proc/23501/exe -> /var/app/movo_releases/1645086172/erts-12.1.5/bin/beam.smp
+    local EXE_PATH=$(ls -l /proc/$1/exe | awk '{ print $NF }')
+    # /var/app/movo_releases/<RELENUMBER>/erts-12.1.5/bin/beam.smp
+    # match: s/(^.*)erts.*$/1/p with input as variable (not file)
+    local LEFT_PART=$(sed -n -e 's/\(^.*\)erts.*$/\1/p' <<<$EXE_PATH)
+    # TODO: why can't i stop gracefully?
+
+    # local cmd_stop="${LEFT_PART}bin/movo stop"
+    # echo -e "  gracefully stopping app with: ${cmd_stop}..."
+    local cmd_stop="kill -9 ${pid}"
+    echo -e "  violently stopping app with: ${cmd_stop}..."
+    $cmd_stop
+    #  sleep some time
+    sleep 1
+    ;;
+  esac
+}
+
+echo -e "\033[44m BUILDING NEW RELEASE \033[0m"
+echo -e "  ports HTTP=\033[34m${HTTP_PORT}\033[0m / HTTPS=\033[34m${HTTPS_PORT}\033[0m"
+
+# get deps
+mix deps.get --only prod
+
+# Optional CI steps
+# CI=true mix test
+# mix credo --strict (commented out, just another example step)
+
+# create assets folders if needed
+ASSETS_PATH="${APP_PATH}/priv/static/assets"
+if [ -d "${ASSETS_PATH}" ]; then
+  rm -rf "${ASSETS_PATH}"
+fi
+
+mkdir "${ASSETS_PATH}"
+echo -e "created clean folder ${ASSETS_PATH}"
+
+# Build phase
+# DOC: this part is handled by mix assets.deploy(:prod) (even the copy part handled by task copy)
+# npm install --prefix ./assets
+# npm run deploy --prefix ./assets
+#  copy sass precompiled (now handled by Mix.Task.Copy)
+cp assets/css/app.css priv/static/assets/app.css
+# mix phx.digest
+
+mix assets.deploy
+
+# Create release
+# using HTTP/HTTPS ports
+REL_PATH="${REL_BASE_PATH}/${now_in_unix_seconds}"
+mix release --path "${REL_PATH}"
+
+# Set the release to the new version
+echo "RELEASE=${now_in_unix_seconds}" >../env_vars
+
+echo -e "\033[42m MIGRATING \033[0m"
+# Run migrations
+mix ecto.migrate
+
+# STOP current app
+stop_app
+sleep 3
+# res=$(sudo lsof -i -P -n | grep LISTEN | grep "beam.smp")
+# echo $res
+
+# Starting new app
+echo -e "\033[42m STARTING NEW RELEASE \033[0m"
+cmdf="${REL_BASE_PATH}/${now_in_unix_seconds}/bin/${APP_NAME} ${cmd}"
+echo -e "  starting (${cmd}) release \033[32m${now_in_unix_seconds}\033[0m on ports \033[32m${HTTPS_PORT}\033[0m"
+echo -e "  running: ${cmdf}"
+
+$cmdf
+
+sleep 5
+echo 'Deployed!'
+
+#  cleaning old releases
+cd "${REL_BASE_PATH}"
+echo "cleaning ${REL_BASE_PATH}..."
+ls
+ls | sort -nr | tail -n +3 | xargs -I {} rm -rf {}
+echo "cleaned."
+echo "remaining releases:"
+ls
+
+echo 'Checking Listeners'
+sudo lsof -i -P -n | grep LISTEN
+# | grep "beam.smp"
